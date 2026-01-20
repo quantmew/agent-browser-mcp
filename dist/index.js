@@ -4,6 +4,8 @@
  *
  * MCP server that provides browser automation capabilities using agent-browser.
  */
+import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, } from '@modelcontextprotocol/sdk/types.js';
@@ -2798,7 +2800,10 @@ async function main() {
     process.stdin.resume();
 }
 // Run if this is the main module
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Use realpathSync to handle symlinks (e.g., when run via npx or bin entries)
+const entryPath = realpathSync(fileURLToPath(import.meta.url));
+const argvPath = realpathSync(process.argv[1]);
+if (entryPath === argvPath) {
     main().catch((error) => {
         console.error('Fatal error:', error);
         process.exit(1);
