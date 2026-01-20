@@ -6,7 +6,7 @@
  * Downloads the platform-specific native binary if not present.
  */
 
-import { existsSync, mkdirSync, chmodSync, createWriteStream, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, chmodSync, createWriteStream, unlinkSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { platform, arch } from 'os';
@@ -25,7 +25,7 @@ const binaryPath = join(binDir, binaryName);
 
 // Package info
 const packageJson = JSON.parse(
-  (await import('fs')).readFileSync(join(projectRoot, 'package.json'), 'utf8')
+  readFileSync(join(projectRoot, 'package.json'), 'utf8')
 );
 const version = packageJson.version;
 
