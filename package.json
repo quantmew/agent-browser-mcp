@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "agent-browser-mcp": "dist/cli.js"
+    "agent-browser-mcp": "dist/index.js"
   },
   "files": [
     "dist",
