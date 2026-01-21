@@ -53,7 +53,25 @@ npx playwright install-deps chromium
 
 ### 2. Configure MCP Client
 
-Add to your MCP client configuration (e.g., Claude Desktop config):
+Add to your MCP client configuration (e.g., Claude Desktop config at `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS or `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+#### Option A: Direct npx installation (recommended)
+
+```json
+{
+  "mcpServers": {
+    "agent-browser": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "github:quantmew/agent-browser-mcp"]
+    }
+  }
+}
+```
+
+This method automatically downloads and runs the latest version from GitHub without manual installation.
+
+#### Option B: Local installation
 
 ```json
 {
