@@ -10,47 +10,67 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, } from '@modelcontextprotocol/sdk/types.js';
 import { BrowserManager } from './browser.js';
+import { IOSManager } from './ios-manager.js';
 import { executeCommand } from './actions.js';
-// Global browser manager instance
-let browser = null;
+import { executeIOSCommand } from './ios-actions.js';
+// Global manager instance (desktop BrowserManager or iOS IOSManager)
+let manager = null;
+function isIOSProvider(provider) {
+    return (provider ?? process.env.AGENT_BROWSER_PROVIDER) === 'ios';
+}
 /**
- * Get or create the browser manager instance
+ * Get or create the manager instance
  */
-function getBrowser() {
-    if (!browser) {
-        browser = new BrowserManager();
+async function getManager(provider) {
+    const shouldUseIOS = isIOSProvider(provider);
+    if (!manager) {
+        manager = shouldUseIOS ? new IOSManager() : new BrowserManager();
+        return manager;
     }
-    return browser;
+    const isCurrentIOS = manager instanceof IOSManager;
+    if (shouldUseIOS !== isCurrentIOS) {
+        await manager.close().catch(() => { });
+        manager = shouldUseIOS ? new IOSManager() : new BrowserManager();
+    }
+    return manager;
 }
 /**
  * Ensure browser is launched
  */
 async function ensureBrowserLaunched(headless = true) {
-    const b = getBrowser();
-    if (!b.isLaunched()) {
-        await b.launch({
-            id: 'mcp-launch',
-            action: 'launch',
-            headless,
-            executablePath: process.env.AGENT_BROWSER_EXECUTABLE_PATH,
-        });
+    const m = await getManager();
+    if (!m.isLaunched()) {
+        if (m instanceof IOSManager) {
+            await m.launch({});
+        }
+        else {
+            await m.launch({
+                id: 'mcp-launch',
+                action: 'launch',
+                headless,
+                executablePath: process.env.AGENT_BROWSER_EXECUTABLE_PATH,
+                provider: process.env.AGENT_BROWSER_PROVIDER,
+            });
+        }
     }
 }
 /**
  * Helper to execute a command and return the result
  */
 async function execute(command) {
-    const b = getBrowser();
+    const launchProvider = command.action === 'launch' ? command.provider : undefined;
+    const m = await getManager(launchProvider);
     try {
         // Auto-launch browser if needed
-        if (!b.isLaunched() &&
+        if (!m.isLaunched() &&
             command.action !== 'launch' &&
             command.action !== 'close' &&
+            command.action !== 'device_list' &&
             command.action !== 'video_start' &&
             command.action !== 'video_stop') {
             await ensureBrowserLaunched();
         }
-        const response = await executeCommand(command, b);
+        const response = m instanceof IOSManager ? await executeIOSCommand(command, m) : await executeCommand(command, m);
         if (response.success) {
             // Handle special response types
             const data = response.data;
@@ -140,6 +160,42 @@ function parseJsonArgument(arg, defaultValue = {}) {
 const TOOLS = [
     // === Navigation ===
     {
+        name: 'browser_launch',
+        description: 'Launch browser session with explicit startup options',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                headless: { type: 'boolean', description: 'Run browser in headless mode' },
+                browser: {
+                    type: 'string',
+                    enum: ['chromium', 'firefox', 'webkit'],
+                    description: 'Browser engine',
+                },
+                cdpPort: { type: 'number', description: 'Connect to local CDP port instead of launching' },
+                cdpUrl: { type: 'string', description: 'Connect to CDP URL (ws/http)' },
+                executablePath: { type: 'string', description: 'Browser executable path' },
+                args: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Additional browser startup args',
+                },
+                userAgent: { type: 'string', description: 'Context user agent' },
+                provider: {
+                    type: 'string',
+                    enum: ['ios', 'browserbase', 'browseruse', 'kernel'],
+                    description: 'Browser provider',
+                },
+                ignoreHTTPSErrors: { type: 'boolean', description: 'Ignore HTTPS/TLS errors' },
+                profile: { type: 'string', description: 'Persistent profile directory path' },
+                storageState: { type: 'string', description: 'Storage state JSON path' },
+                allowFileAccess: {
+                    type: 'boolean',
+                    description: 'Enable file:// cross-origin access (Chromium only)',
+                },
+            },
+        },
+    },
+    {
         name: 'browser_navigate',
         description: 'Navigate to a URL',
         inputSchema: {
@@ -176,6 +232,10 @@ const TOOLS = [
                     type: 'boolean',
                     description: 'Only show interactive elements (buttons, inputs, links)',
                 },
+                cursor: {
+                    type: 'boolean',
+                    description: 'Include cursor-interactive elements (cursor:pointer, onclick, tabindex)',
+                },
                 compact: {
                     type: 'boolean',
                     description: 'Remove empty structural elements',
@@ -206,10 +266,37 @@ const TOOLS = [
                     description: 'Capture full page scrollable screenshot',
                 },
                 selector: {
-                    type: 'string',
+                    type: ['string', 'null'],
                     description: 'CSS selector for element screenshot',
                 },
             },
+        },
+    },
+    {
+        name: 'browser_ios_device_list',
+        description: 'List available iOS devices/simulators',
+        inputSchema: {
+            type: 'object',
+            properties: {},
+        },
+    },
+    {
+        name: 'browser_ios_swipe',
+        description: 'Perform swipe gesture on iOS provider',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                direction: {
+                    type: 'string',
+                    enum: ['up', 'down', 'left', 'right'],
+                    description: 'Swipe direction',
+                },
+                distance: {
+                    type: 'number',
+                    description: 'Optional swipe distance in pixels',
+                },
+            },
+            required: ['direction'],
         },
     },
     {
@@ -1991,6 +2078,24 @@ async function handleToolCall(name, args) {
     const generateId = () => Math.random().toString(36).substring(7);
     switch (name) {
         // === Navigation ===
+        case 'browser_launch': {
+            return execute({
+                id: generateId(),
+                action: 'launch',
+                headless: args.headless,
+                browser: args.browser,
+                cdpPort: args.cdpPort,
+                cdpUrl: args.cdpUrl,
+                executablePath: args.executablePath ?? process.env.AGENT_BROWSER_EXECUTABLE_PATH,
+                args: args.args,
+                userAgent: args.userAgent,
+                provider: args.provider,
+                ignoreHTTPSErrors: args.ignoreHTTPSErrors,
+                profile: args.profile,
+                storageState: args.storageState,
+                allowFileAccess: args.allowFileAccess,
+            });
+        }
         case 'browser_navigate': {
             await ensureBrowserLaunched(args.headless !== false);
             return execute({
@@ -2005,12 +2110,11 @@ async function handleToolCall(name, args) {
             return execute({
                 id: generateId(),
                 action: 'snapshot',
-                options: {
-                    interactiveOnly: args.interactiveOnly,
-                    compact: args.compact,
-                    depth: args.depth,
-                    selector: args.selector,
-                },
+                interactive: args.interactiveOnly,
+                cursor: args.cursor,
+                compact: args.compact,
+                maxDepth: args.depth,
+                selector: args.selector,
             });
         }
         case 'browser_screenshot': {
@@ -2022,6 +2126,15 @@ async function handleToolCall(name, args) {
                 selector: args.selector,
             });
         }
+        case 'browser_ios_device_list':
+            return execute({ id: generateId(), action: 'device_list' });
+        case 'browser_ios_swipe':
+            return execute({
+                id: generateId(),
+                action: 'swipe',
+                direction: args.direction,
+                distance: args.distance,
+            });
         case 'browser_back':
             return execute({ id: generateId(), action: 'back' });
         case 'browser_forward':
@@ -2730,7 +2843,7 @@ async function handleToolCall(name, args) {
                 id: generateId(),
                 action: 'close',
             });
-            browser = null;
+            manager = null;
             return result;
         default:
             return {
@@ -2782,14 +2895,14 @@ async function main() {
     });
     // Cleanup on exit
     process.on('SIGINT', async () => {
-        if (browser) {
-            await browser.close();
+        if (manager) {
+            await manager.close();
         }
         process.exit(0);
     });
     process.on('SIGTERM', async () => {
-        if (browser) {
-            await browser.close();
+        if (manager) {
+            await manager.close();
         }
         process.exit(0);
     });

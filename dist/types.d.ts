@@ -14,13 +14,21 @@ export interface LaunchCommand extends BaseCommand {
     headers?: Record<string, string>;
     executablePath?: string;
     cdpPort?: number;
+    cdpUrl?: string;
     extensions?: string[];
+    profile?: string;
+    storageState?: string;
     proxy?: {
         server: string;
         bypass?: string;
         username?: string;
         password?: string;
     };
+    args?: string[];
+    userAgent?: string;
+    provider?: string;
+    ignoreHTTPSErrors?: boolean;
+    allowFileAccess?: boolean;
 }
 export interface NavigateCommand extends BaseCommand {
     action: 'navigate';
@@ -398,6 +406,14 @@ export interface InputTouchCommand extends BaseCommand {
     }>;
     modifiers?: number;
 }
+export interface SwipeCommand extends BaseCommand {
+    action: 'swipe';
+    direction: 'up' | 'down' | 'left' | 'right';
+    distance?: number;
+}
+export interface DeviceListCommand extends BaseCommand {
+    action: 'device_list';
+}
 export interface VideoStartCommand extends BaseCommand {
     action: 'video_start';
     path: string;
@@ -549,12 +565,17 @@ export interface ScreenshotCommand extends BaseCommand {
     action: 'screenshot';
     path?: string;
     fullPage?: boolean;
-    selector?: string;
+    selector?: string | null;
     format?: 'png' | 'jpeg';
     quality?: number;
 }
 export interface SnapshotCommand extends BaseCommand {
     action: 'snapshot';
+    interactive?: boolean;
+    cursor?: boolean;
+    maxDepth?: number;
+    compact?: boolean;
+    selector?: string;
 }
 export interface EvaluateCommand extends BaseCommand {
     action: 'evaluate';
@@ -613,7 +634,7 @@ export interface WindowNewCommand extends BaseCommand {
         height: number;
     };
 }
-export type Command = LaunchCommand | NavigateCommand | ClickCommand | TypeCommand | FillCommand | CheckCommand | UncheckCommand | UploadCommand | DoubleClickCommand | FocusCommand | DragCommand | FrameCommand | MainFrameCommand | GetByRoleCommand | GetByTextCommand | GetByLabelCommand | GetByPlaceholderCommand | PressCommand | ScreenshotCommand | SnapshotCommand | EvaluateCommand | WaitCommand | ScrollCommand | SelectCommand | HoverCommand | ContentCommand | CloseCommand | TabNewCommand | TabListCommand | TabSwitchCommand | TabCloseCommand | WindowNewCommand | CookiesGetCommand | CookiesSetCommand | CookiesClearCommand | StorageGetCommand | StorageSetCommand | StorageClearCommand | DialogCommand | PdfCommand | RouteCommand | UnrouteCommand | RequestsCommand | DownloadCommand | GeolocationCommand | PermissionsCommand | ViewportCommand | UserAgentCommand | DeviceCommand | BackCommand | ForwardCommand | ReloadCommand | UrlCommand | TitleCommand | GetAttributeCommand | GetTextCommand | IsVisibleCommand | IsEnabledCommand | IsCheckedCommand | CountCommand | BoundingBoxCommand | StylesCommand | VideoStartCommand | VideoStopCommand | RecordingStartCommand | RecordingStopCommand | RecordingRestartCommand | TraceStartCommand | TraceStopCommand | HarStartCommand | HarStopCommand | StorageStateSaveCommand | StorageStateLoadCommand | ConsoleCommand | ErrorsCommand | KeyboardCommand | WheelCommand | TapCommand | ClipboardCommand | HighlightCommand | ClearCommand | SelectAllCommand | InnerTextCommand | InnerHtmlCommand | InputValueCommand | SetValueCommand | DispatchEventCommand | EvaluateHandleCommand | ExposeFunctionCommand | AddScriptCommand | AddStyleCommand | EmulateMediaCommand | OfflineCommand | HeadersCommand | PauseCommand | GetByAltTextCommand | GetByTitleCommand | GetByTestIdCommand | NthCommand | WaitForUrlCommand | WaitForLoadStateCommand | SetContentCommand | TimezoneCommand | LocaleCommand | HttpCredentialsCommand | MouseMoveCommand | MouseDownCommand | MouseUpCommand | BringToFrontCommand | WaitForFunctionCommand | ScrollIntoViewCommand | AddInitScriptCommand | KeyDownCommand | KeyUpCommand | InsertTextCommand | MultiSelectCommand | WaitForDownloadCommand | ResponseBodyCommand | ScreencastStartCommand | ScreencastStopCommand | InputMouseCommand | InputKeyboardCommand | InputTouchCommand;
+export type Command = LaunchCommand | NavigateCommand | ClickCommand | TypeCommand | FillCommand | CheckCommand | UncheckCommand | UploadCommand | DoubleClickCommand | FocusCommand | DragCommand | FrameCommand | MainFrameCommand | GetByRoleCommand | GetByTextCommand | GetByLabelCommand | GetByPlaceholderCommand | PressCommand | ScreenshotCommand | SnapshotCommand | EvaluateCommand | WaitCommand | ScrollCommand | SelectCommand | HoverCommand | ContentCommand | CloseCommand | TabNewCommand | TabListCommand | TabSwitchCommand | TabCloseCommand | WindowNewCommand | CookiesGetCommand | CookiesSetCommand | CookiesClearCommand | StorageGetCommand | StorageSetCommand | StorageClearCommand | DialogCommand | PdfCommand | RouteCommand | UnrouteCommand | RequestsCommand | DownloadCommand | GeolocationCommand | PermissionsCommand | ViewportCommand | UserAgentCommand | DeviceCommand | BackCommand | ForwardCommand | ReloadCommand | UrlCommand | TitleCommand | GetAttributeCommand | GetTextCommand | IsVisibleCommand | IsEnabledCommand | IsCheckedCommand | CountCommand | BoundingBoxCommand | StylesCommand | VideoStartCommand | VideoStopCommand | RecordingStartCommand | RecordingStopCommand | RecordingRestartCommand | TraceStartCommand | TraceStopCommand | HarStartCommand | HarStopCommand | StorageStateSaveCommand | StorageStateLoadCommand | ConsoleCommand | ErrorsCommand | KeyboardCommand | WheelCommand | TapCommand | ClipboardCommand | HighlightCommand | ClearCommand | SelectAllCommand | InnerTextCommand | InnerHtmlCommand | InputValueCommand | SetValueCommand | DispatchEventCommand | EvaluateHandleCommand | ExposeFunctionCommand | AddScriptCommand | AddStyleCommand | EmulateMediaCommand | OfflineCommand | HeadersCommand | PauseCommand | GetByAltTextCommand | GetByTitleCommand | GetByTestIdCommand | NthCommand | WaitForUrlCommand | WaitForLoadStateCommand | SetContentCommand | TimezoneCommand | LocaleCommand | HttpCredentialsCommand | MouseMoveCommand | MouseDownCommand | MouseUpCommand | BringToFrontCommand | WaitForFunctionCommand | ScrollIntoViewCommand | AddInitScriptCommand | KeyDownCommand | KeyUpCommand | InsertTextCommand | MultiSelectCommand | WaitForDownloadCommand | ResponseBodyCommand | ScreencastStartCommand | ScreencastStopCommand | InputMouseCommand | InputKeyboardCommand | InputTouchCommand | SwipeCommand | DeviceListCommand;
 export interface SuccessResponse<T = unknown> {
     id: string;
     success: true;

@@ -16,6 +16,14 @@ const launchSchema = baseCommandSchema.extend({
         .optional(),
     browser: z.enum(['chromium', 'firefox', 'webkit']).optional(),
     cdpPort: z.number().positive().optional(),
+    cdpUrl: z
+        .string()
+        .url()
+        .refine((url) => url.startsWith('ws://') ||
+        url.startsWith('wss://') ||
+        url.startsWith('http://') ||
+        url.startsWith('https://'), { message: 'CDP URL must start with ws://, wss://, http://, or https://' })
+        .optional(),
     executablePath: z.string().optional(),
     extensions: z.array(z.string()).optional(),
     headers: z.record(z.string()).optional(),
@@ -27,6 +35,13 @@ const launchSchema = baseCommandSchema.extend({
         password: z.string().optional(),
     })
         .optional(),
+    args: z.array(z.string()).optional(),
+    userAgent: z.string().optional(),
+    provider: z.string().optional(),
+    ignoreHTTPSErrors: z.boolean().optional(),
+    profile: z.string().optional(),
+    storageState: z.string().optional(),
+    allowFileAccess: z.boolean().optional(),
 });
 const navigateSchema = baseCommandSchema.extend({
     action: z.literal('navigate'),
@@ -553,6 +568,15 @@ const inputTouchSchema = baseCommandSchema.extend({
     })),
     modifiers: z.number().optional(),
 });
+// iOS-specific schemas
+const swipeSchema = baseCommandSchema.extend({
+    action: z.literal('swipe'),
+    direction: z.enum(['up', 'down', 'left', 'right']),
+    distance: z.number().positive().optional(),
+});
+const deviceListSchema = baseCommandSchema.extend({
+    action: z.literal('device_list'),
+});
 const pressSchema = baseCommandSchema.extend({
     action: z.literal('press'),
     key: z.string().min(1),
@@ -562,13 +586,14 @@ const screenshotSchema = baseCommandSchema.extend({
     action: z.literal('screenshot'),
     path: z.string().nullable().optional(),
     fullPage: z.boolean().optional(),
-    selector: z.string().min(1).optional(),
+    selector: z.string().min(1).nullish(),
     format: z.enum(['png', 'jpeg']).optional(),
     quality: z.number().min(0).max(100).optional(),
 });
 const snapshotSchema = baseCommandSchema.extend({
     action: z.literal('snapshot'),
     interactive: z.boolean().optional(),
+    cursor: z.boolean().optional(),
     maxDepth: z.number().nonnegative().optional(),
     compact: z.boolean().optional(),
     selector: z.string().optional(),
@@ -758,6 +783,8 @@ const commandSchema = z.discriminatedUnion('action', [
     inputMouseSchema,
     inputKeyboardSchema,
     inputTouchSchema,
+    swipeSchema,
+    deviceListSchema,
 ]);
 /**
  * Parse a JSON string into a validated command

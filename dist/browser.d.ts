@@ -42,8 +42,14 @@ interface PageError {
  */
 export declare class BrowserManager {
     private browser;
-    private cdpPort;
+    private cdpEndpoint;
     private isPersistentContext;
+    private browserbaseSessionId;
+    private browserbaseApiKey;
+    private browserUseSessionId;
+    private browserUseApiKey;
+    private kernelSessionId;
+    private kernelApiKey;
     private contexts;
     private pages;
     private activePageIndex;
@@ -75,6 +81,7 @@ export declare class BrowserManager {
      */
     getSnapshot(options?: {
         interactive?: boolean;
+        cursor?: boolean;
         maxDepth?: number;
         compact?: boolean;
         selector?: string;
@@ -164,6 +171,22 @@ export declare class BrowserManager {
      * Set viewport
      */
     setViewport(width: number, height: number): Promise<void>;
+    /**
+     * Set device scale factor (devicePixelRatio) via CDP
+     * This sets window.devicePixelRatio which affects how the page renders and responds to media queries
+     *
+     * Note: When using CDP to set deviceScaleFactor, screenshots will be at logical pixel dimensions
+     * (viewport size), not physical pixel dimensions (viewport × scale). This is a Playwright limitation
+     * when using CDP emulation on existing contexts. For true HiDPI screenshots with physical pixels,
+     * deviceScaleFactor must be set at context creation time.
+     *
+     * Must be called after setViewport to work correctly
+     */
+    setDeviceScaleFactor(deviceScaleFactor: number, width: number, height: number, mobile?: boolean): Promise<void>;
+    /**
+     * Clear device metrics override to restore default devicePixelRatio
+     */
+    clearDeviceMetricsOverride(): Promise<void>;
     /**
      * Get device descriptor
      */
@@ -258,12 +281,45 @@ export declare class BrowserManager {
      */
     private needsCdpReconnect;
     /**
+     * Close a Browserbase session via API
+     */
+    private closeBrowserbaseSession;
+    /**
+     * Close a Browser Use session via API
+     */
+    private closeBrowserUseSession;
+    /**
+     * Close a Kernel session via API
+     */
+    private closeKernelSession;
+    /**
+     * Connect to Browserbase remote browser via CDP.
+     * Requires BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID environment variables.
+     */
+    private connectToBrowserbase;
+    /**
+     * Find or create a Kernel profile by name.
+     * Returns the profile object if successful.
+     */
+    private findOrCreateKernelProfile;
+    /**
+     * Connect to Kernel remote browser via CDP.
+     * Requires KERNEL_API_KEY environment variable.
+     */
+    private connectToKernel;
+    /**
+     * Connect to Browser Use remote browser via CDP.
+     * Requires BROWSER_USE_API_KEY environment variable.
+     */
+    private connectToBrowserUse;
+    /**
      * Launch the browser with the specified options
      * If already launched, this is a no-op (browser stays open)
      */
     launch(options: LaunchCommand): Promise<void>;
     /**
      * Connect to a running browser via CDP (Chrome DevTools Protocol)
+     * @param cdpEndpoint Either a port number (as string) or a full WebSocket URL (ws:// or wss://)
      */
     private connectViaCDP;
     /**
@@ -271,7 +327,8 @@ export declare class BrowserManager {
      */
     private setupPageTracking;
     /**
-     * Set up tracking for new pages in a context (for CDP connections)
+     * Set up tracking for new pages in a context (for CDP connections and popups/new tabs)
+     * This handles pages created externally (e.g., via target="_blank" links)
      */
     private setupContextTracking;
     /**

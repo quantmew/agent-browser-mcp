@@ -33,6 +33,8 @@ export interface EnhancedSnapshot {
 export interface SnapshotOptions {
     /** Only include interactive elements (buttons, links, inputs, etc.) */
     interactive?: boolean;
+    /** Include cursor-interactive elements (cursor:pointer, onclick, tabindex) */
+    cursor?: boolean;
     /** Maximum depth of tree to include (0 = root only) */
     maxDepth?: number;
     /** Remove structural elements without meaningful content */

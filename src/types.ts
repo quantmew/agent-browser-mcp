@@ -15,13 +15,21 @@ export interface LaunchCommand extends BaseCommand {
   headers?: Record<string, string>;
   executablePath?: string;
   cdpPort?: number;
+  cdpUrl?: string;
   extensions?: string[];
+  profile?: string; // Path to persistent browser profile directory
+  storageState?: string; // Path to storage state JSON file
   proxy?: {
     server: string;
     bypass?: string;
     username?: string;
     password?: string;
   };
+  args?: string[];
+  userAgent?: string;
+  provider?: string;
+  ignoreHTTPSErrors?: boolean;
+  allowFileAccess?: boolean; // Enable file:// URL access and cross-origin file requests
 }
 
 export interface NavigateCommand extends BaseCommand {
@@ -514,6 +522,17 @@ export interface InputTouchCommand extends BaseCommand {
   modifiers?: number;
 }
 
+// iOS-specific commands
+export interface SwipeCommand extends BaseCommand {
+  action: 'swipe';
+  direction: 'up' | 'down' | 'left' | 'right';
+  distance?: number;
+}
+
+export interface DeviceListCommand extends BaseCommand {
+  action: 'device_list';
+}
+
 // Video recording (Playwright native - requires launch-time setup)
 export interface VideoStartCommand extends BaseCommand {
   action: 'video_start';
@@ -724,13 +743,18 @@ export interface ScreenshotCommand extends BaseCommand {
   action: 'screenshot';
   path?: string;
   fullPage?: boolean;
-  selector?: string;
+  selector?: string | null;
   format?: 'png' | 'jpeg';
   quality?: number;
 }
 
 export interface SnapshotCommand extends BaseCommand {
   action: 'snapshot';
+  interactive?: boolean;
+  cursor?: boolean;
+  maxDepth?: number;
+  compact?: boolean;
+  selector?: string;
 }
 
 export interface EvaluateCommand extends BaseCommand {
@@ -924,7 +948,9 @@ export type Command =
   | ScreencastStopCommand
   | InputMouseCommand
   | InputKeyboardCommand
-  | InputTouchCommand;
+  | InputTouchCommand
+  | SwipeCommand
+  | DeviceListCommand;
 
 // Response types
 export interface SuccessResponse<T = unknown> {

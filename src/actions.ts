@@ -549,7 +549,7 @@ async function handleScreenshot(
 
   let target: Page | ReturnType<Page['locator']> = page;
   if (command.selector) {
-    target = page.locator(command.selector);
+    target = browser.getLocator(command.selector);
   }
 
   if (command.path) {
@@ -565,6 +565,7 @@ async function handleSnapshot(
   command: Command & {
     action: 'snapshot';
     interactive?: boolean;
+    cursor?: boolean;
     maxDepth?: number;
     compact?: boolean;
     selector?: string;
@@ -574,6 +575,7 @@ async function handleSnapshot(
   // Use enhanced snapshot with refs and optional filtering
   const { tree, refs } = await browser.getSnapshot({
     interactive: command.interactive,
+    cursor: command.cursor,
     maxDepth: command.maxDepth,
     compact: command.compact,
     selector: command.selector,
@@ -1074,11 +1076,14 @@ async function handleDownload(
   browser: BrowserManager
 ): Promise<Response> {
   const page = browser.getPage();
+  const locator = browser.getLocator(command.selector);
 
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.click(command.selector),
-  ]);
+  let download;
+  try {
+    [download] = await Promise.all([page.waitForEvent('download'), locator.click()]);
+  } catch (error) {
+    throw toAIFriendlyError(error, command.selector);
+  }
 
   await download.saveAs(command.path);
   return successResponse(command.id, {
@@ -1142,10 +1147,27 @@ async function handleDevice(command: DeviceCommand, browser: BrowserManager): Pr
   // Apply device viewport
   await browser.setViewport(device.viewport.width, device.viewport.height);
 
+  // Apply or clear device scale factor
+  if (device.deviceScaleFactor && device.deviceScaleFactor !== 1) {
+    await browser.setDeviceScaleFactor(
+      device.deviceScaleFactor,
+      device.viewport.width,
+      device.viewport.height,
+      device.isMobile ?? false
+    );
+  } else {
+    try {
+      await browser.clearDeviceMetricsOverride();
+    } catch {
+      // Ignore error if override was never set
+    }
+  }
+
   return successResponse(command.id, {
     device: command.device,
     viewport: device.viewport,
     userAgent: device.userAgent,
+    deviceScaleFactor: device.deviceScaleFactor,
   });
 }
 

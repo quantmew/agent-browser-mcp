@@ -375,7 +375,7 @@ async function handleScreenshot(command, browser) {
     }
     let target = page;
     if (command.selector) {
-        target = page.locator(command.selector);
+        target = browser.getLocator(command.selector);
     }
     if (command.path) {
         await target.screenshot({ ...options, path: command.path });
@@ -390,6 +390,7 @@ async function handleSnapshot(command, browser) {
     // Use enhanced snapshot with refs and optional filtering
     const { tree, refs } = await browser.getSnapshot({
         interactive: command.interactive,
+        cursor: command.cursor,
         maxDepth: command.maxDepth,
         compact: command.compact,
         selector: command.selector,
@@ -763,10 +764,14 @@ async function handleRequests(command, browser) {
 }
 async function handleDownload(command, browser) {
     const page = browser.getPage();
-    const [download] = await Promise.all([
-        page.waitForEvent('download'),
-        page.click(command.selector),
-    ]);
+    const locator = browser.getLocator(command.selector);
+    let download;
+    try {
+        [download] = await Promise.all([page.waitForEvent('download'), locator.click()]);
+    }
+    catch (error) {
+        throw toAIFriendlyError(error, command.selector);
+    }
     await download.saveAs(command.path);
     return successResponse(command.id, {
         path: command.path,
@@ -810,10 +815,23 @@ async function handleDevice(command, browser) {
     }
     // Apply device viewport
     await browser.setViewport(device.viewport.width, device.viewport.height);
+    // Apply or clear device scale factor
+    if (device.deviceScaleFactor && device.deviceScaleFactor !== 1) {
+        await browser.setDeviceScaleFactor(device.deviceScaleFactor, device.viewport.width, device.viewport.height, device.isMobile ?? false);
+    }
+    else {
+        try {
+            await browser.clearDeviceMetricsOverride();
+        }
+        catch {
+            // Ignore error if override was never set
+        }
+    }
     return successResponse(command.id, {
         device: command.device,
         viewport: device.viewport,
         userAgent: device.userAgent,
+        deviceScaleFactor: device.deviceScaleFactor,
     });
 }
 async function handleBack(command, browser) {
